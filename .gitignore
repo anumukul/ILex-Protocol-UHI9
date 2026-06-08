@@ -1,0 +1,12 @@
+node_modules/
+.env
+.env.local
+out/
+cache/
+artifacts/
+frontend/.next/
+frontend/out/
+*.swp
+*.swo
+.DS_Store
+PR.md

@@ -1,0 +1,15 @@
+[submodule "contracts/lib/v4-core"]
+	path = contracts/lib/v4-core
+	url = https://github.com/uniswap/v4-core
+[submodule "contracts/lib/v4-periphery"]
+	path = contracts/lib/v4-periphery
+	url = https://github.com/uniswap/v4-periphery
+[submodule "contracts/lib/reactive-lib"]
+	path = contracts/lib/reactive-lib
+	url = https://github.com/Reactive-Network/reactive-lib
+[submodule "contracts/lib/reactive-test-lib"]
+	path = contracts/lib/reactive-test-lib
+	url = https://github.com/Reactive-Network/reactive-test-lib
+[submodule "contracts/lib/openzeppelin-contracts"]
+	path = contracts/lib/openzeppelin-contracts
+	url = https://github.com/OpenZeppelin/openzeppelin-contracts
