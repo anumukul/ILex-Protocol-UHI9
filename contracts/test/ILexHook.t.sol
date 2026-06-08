@@ -191,6 +191,135 @@ contract ILexHookTest is Test, Deployers {
         assertEq(y1, 0);
     }
 
+    function test_TriggerExit_MovesFromPoolToLendingPool() public {
+        vm.prank(LP1);
+        hook.deposit(poolKey, -60, 60, 1000e18, 1000e18, 500, 200);
+
+        uint256 lendingPoolToken0Before = token0.balanceOf(address(lendingPool));
+
+        vm.prank(CALLBACK_PROXY);
+        hook.triggerExit(RVM_ID, LP1);
+
+        ILexHook.LPPosition memory pos = hook.getPosition(LP1);
+        assertEq(uint8(pos.status), uint8(ILexHook.PositionStatus.EXITED));
+        assertEq(pos.liquidity, 0);
+
+        assertGt(token0.balanceOf(address(lendingPool)), lendingPoolToken0Before);
+
+        ILexHook.ParkedFunds memory parked = hook.getParkedFunds(LP1);
+        assertGt(parked.token0Deposited, 0);
+    }
+
+    function test_TriggerExit_RevertsIfNotCallbackProxy() public {
+        vm.prank(LP1);
+        hook.deposit(poolKey, -60, 60, 1000e18, 1000e18, 500, 200);
+
+        vm.prank(makeAddr("attacker"));
+        vm.expectRevert(ILexHook.NotCallbackProxy.selector);
+        hook.triggerExit(RVM_ID, LP1);
+    }
+
+    function test_TriggerExit_RevertsIfWrongRvmId() public {
+        vm.prank(LP1);
+        hook.deposit(poolKey, -60, 60, 1000e18, 1000e18, 500, 200);
+
+        vm.prank(CALLBACK_PROXY);
+        vm.expectRevert(ILexHook.NotAuthorizedRvm.selector);
+        hook.triggerExit(makeAddr("fakeRvm"), LP1);
+    }
+
+    function test_TriggerExit_RevertsIfAlreadyExited() public {
+        vm.prank(LP1);
+        hook.deposit(poolKey, -60, 60, 1000e18, 1000e18, 500, 200);
+
+        vm.startPrank(CALLBACK_PROXY);
+        hook.triggerExit(RVM_ID, LP1);
+        vm.expectRevert(ILexHook.ExitAlreadyTriggered.selector);
+        hook.triggerExit(RVM_ID, LP1);
+        vm.stopPrank();
+    }
+
+    function test_TriggerReentry_ReturnsToPool() public {
+        vm.prank(LP1);
+        hook.deposit(poolKey, -60, 60, 1000e18, 1000e18, 500, 200);
+
+        vm.prank(CALLBACK_PROXY);
+        hook.triggerExit(RVM_ID, LP1);
+
+        vm.warp(block.timestamp + 30 days);
+
+        ILexHook.ParkedFunds memory p = hook.getParkedFunds(LP1);
+        token0.mint(address(lendingPool), p.token0Deposited * 300 * 30 days / (365 days * 10000) + 1);
+        token1.mint(address(lendingPool), p.token1Deposited * 300 * 30 days / (365 days * 10000) + 1);
+
+        vm.prank(CALLBACK_PROXY);
+        hook.triggerReentry(RVM_ID, LP1);
+
+        ILexHook.LPPosition memory pos = hook.getPosition(LP1);
+        assertEq(uint8(pos.status), uint8(ILexHook.PositionStatus.ACTIVE));
+        assertGt(pos.liquidity, 0);
+
+        ILexHook.ParkedFunds memory parked = hook.getParkedFunds(LP1);
+        assertEq(parked.token0Deposited, 0);
+        assertEq(parked.token1Deposited, 0);
+    }
+
+    function test_YieldAccruesDuringParking() public {
+        vm.prank(LP1);
+        hook.deposit(poolKey, -60, 60, 1000e18, 1000e18, 500, 200);
+
+        vm.prank(CALLBACK_PROXY);
+        hook.triggerExit(RVM_ID, LP1);
+
+        (uint256 yield0Before,) = hook.estimateYieldAccrued(LP1);
+
+        vm.warp(block.timestamp + 30 days);
+
+        (uint256 yield0After,) = hook.estimateYieldAccrued(LP1);
+        assertGt(yield0After, yield0Before);
+    }
+
+    function test_ManualExit_ActivePosition() public {
+        vm.startPrank(LP1);
+        hook.deposit(poolKey, -60, 60, 1000e18, 1000e18, 500, 200);
+
+        uint256 token0Before = token0.balanceOf(LP1);
+        uint256 token1Before = token1.balanceOf(LP1);
+        hook.manualExit();
+        vm.stopPrank();
+
+        assertGt(token0.balanceOf(LP1), token0Before);
+        assertGt(token1.balanceOf(LP1), token1Before);
+
+        ILexHook.LPPosition memory pos = hook.getPosition(LP1);
+        assertEq(uint8(pos.status), uint8(ILexHook.PositionStatus.NONE));
+    }
+
+    function test_ManualExit_ParkedPosition() public {
+        vm.prank(LP1);
+        hook.deposit(poolKey, -60, 60, 1000e18, 1000e18, 500, 200);
+
+        vm.prank(CALLBACK_PROXY);
+        hook.triggerExit(RVM_ID, LP1);
+
+        vm.warp(block.timestamp + 30 days);
+
+        ILexHook.ParkedFunds memory p = hook.getParkedFunds(LP1);
+        token0.mint(address(lendingPool), p.token0Deposited * 300 * 30 days / (365 days * 10000) + 1);
+        token1.mint(address(lendingPool), p.token1Deposited * 300 * 30 days / (365 days * 10000) + 1);
+
+        uint256 token0Before = token0.balanceOf(LP1);
+        uint256 token1Before = token1.balanceOf(LP1);
+        vm.prank(LP1);
+        hook.manualExit();
+
+        assertGt(token0.balanceOf(LP1), token0Before);
+        assertGt(token1.balanceOf(LP1), token1Before);
+
+        ILexHook.LPPosition memory pos = hook.getPosition(LP1);
+        assertEq(uint8(pos.status), uint8(ILexHook.PositionStatus.NONE));
+    }
+
     function test_MultipleLP_IndependentPositions() public {
         vm.prank(LP1);
         hook.deposit(poolKey, -60, 60, 500e18, 500e18, 500, 200);
