@@ -179,9 +179,6 @@ contract ILexHook is IHooks, IUnlockCallback, ReentrancyGuard, Ownable {
             sqrtPriceX96, sqrtPriceAX96, sqrtPriceBX96, amount0Desired, amount1Desired
         );
 
-        IERC20(token0).approve(address(poolManager), amount0Desired);
-        IERC20(token1).approve(address(poolManager), amount1Desired);
-
         poolManager.unlock(
             abi.encode(UnlockAction.ADD, key.currency0, key.currency1, key.fee, key.tickSpacing, key.hooks, tickLower, tickUpper, liquidity, msg.sender)
         );
@@ -365,7 +362,7 @@ contract ILexHook is IHooks, IUnlockCallback, ReentrancyGuard, Ownable {
         return ILMath.calculateIL(positions[lp].entrySqrtPriceX96, sqrtPriceX96);
     }
 
-    function unlockCallback(bytes calldata data) external returns (bytes memory) {
+    function unlockCallback(bytes calldata data) external override returns (bytes memory) {
         require(msg.sender == address(poolManager));
 
         (
