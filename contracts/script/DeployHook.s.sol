@@ -33,6 +33,7 @@ contract DeployHook is Script {
         MockLendingPool lendingPool = new MockLendingPool();
 
         uint160 hookFlags = uint160(Hooks.AFTER_SWAP_FLAG);
+        uint160 hookMask = Hooks.ALL_HOOK_MASK;
         bytes memory constructorArgs = abi.encode(
             IPoolManager(poolManager),
             ILendingPool(address(lendingPool)),
@@ -52,7 +53,7 @@ contract DeployHook is Script {
                 salt,
                 initCodeHash
             )))));
-            if (uint160(hookAddress) & hookFlags == hookFlags) {
+            if (uint160(hookAddress) & hookMask == hookFlags) {
                 break;
             }
             if (i == 9_999_999) {
@@ -60,13 +61,12 @@ contract DeployHook is Script {
             }
         }
 
-        ILexHook hook = new ILexHook{salt: salt}(
-            IPoolManager(poolManager),
-            ILendingPool(address(lendingPool)),
-            callbackProxy,
-            deployer
+        (bool success, bytes memory returnData) = CREATE2_DEPLOYER.call(
+            abi.encodePacked(salt, initCode)
         );
+        require(success, "CREATE2 deploy failed");
 
+        ILexHook hook = ILexHook(hookAddress);
         require(address(hook) == hookAddress, "Hook address mismatch");
 
         PoolKey memory poolKey = PoolKey({
