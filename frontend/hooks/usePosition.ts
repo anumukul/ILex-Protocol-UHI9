@@ -1,74 +1,57 @@
 "use client";
 
-import { useReadContract } from "wagmi";
-import { hookABI, hookAddress, PositionStatus } from "@/lib/contracts";
+import { useAccount, useReadContract } from "wagmi";
+import { ILEX_HOOK_ABI, ILEX_HOOK_ADDRESS, POOL_MANAGER_ABI, POOL_MANAGER_ADDRESS } from "@/lib/contracts";
 
-interface RawPosition {
-  poolKey: {
-    currency0: `0x${string}`;
-    currency1: `0x${string}`;
-    fee: number;
-    tickSpacing: number;
-    hooks: `0x${string}`;
-  };
-  tickLower: number;
-  tickUpper: number;
-  liquidity: bigint;
-  entrySqrtPriceX96: bigint;
-  ilThresholdBps: bigint;
-  reentryToleranceBps: bigint;
-  status: number;
-  depositTimestamp: bigint;
-}
+export function usePosition() {
+  const { address } = useAccount();
 
-export function usePosition(address: `0x${string}` | undefined) {
-  const { data: raw, ...rest } = useReadContract({
-    abi: hookABI,
-    address: hookAddress(),
+  const { data: raw, refetch, ...rest } = useReadContract({
+    abi: ILEX_HOOK_ABI,
+    address: ILEX_HOOK_ADDRESS,
     functionName: "positions",
     args: address ? [address] : undefined,
     query: { enabled: !!address },
   });
 
-  const { data: il, ...ilRest } = useReadContract({
-    abi: hookABI,
-    address: hookAddress(),
+  const { data: il } = useReadContract({
+    abi: ILEX_HOOK_ABI,
+    address: ILEX_HOOK_ADDRESS,
     functionName: "getCurrentIL",
     args: address ? [address] : undefined,
     query: { enabled: !!address },
   });
 
-  const { data: parkedArr, ...parkedRest } = useReadContract({
-    abi: hookABI,
-    address: hookAddress(),
-    functionName: "getParkedFunds",
-    args: address ? [address] : undefined,
-    query: { enabled: !!address },
+  const position = raw as {
+    poolKey: {
+      currency0: `0x${string}`;
+      currency1: `0x${string}`;
+      fee: number;
+      tickSpacing: number;
+      hooks: `0x${string}`;
+    };
+    tickLower: number;
+    tickUpper: number;
+    liquidity: bigint;
+    entrySqrtPriceX96: bigint;
+    ilThresholdBps: bigint;
+    reentryToleranceBps: bigint;
+    status: number;
+    depositTimestamp: bigint;
+  } | undefined;
+
+  const { data: slot0 } = useReadContract({
+    abi: POOL_MANAGER_ABI,
+    address: POOL_MANAGER_ADDRESS,
+    functionName: "slot0",
+    args: position?.poolKey ? [position.poolKey] : undefined,
+    query: { enabled: !!position?.poolKey, refetchInterval: 15_000 },
   });
-
-  const { data: yield_, ...yieldRest } = useReadContract({
-    abi: hookABI,
-    address: hookAddress(),
-    functionName: "estimateYieldAccrued",
-    args: address ? [address] : undefined,
-    query: { enabled: !!address },
-  });
-
-  const position: RawPosition | undefined = raw as RawPosition | undefined;
-
-  const parkedFunds = parkedArr
-    ? {
-        token0Deposited: (parkedArr as unknown as [bigint, bigint, bigint])[0],
-        token1Deposited: (parkedArr as unknown as [bigint, bigint, bigint])[1],
-        depositTimestamp: (parkedArr as unknown as [bigint, bigint, bigint])[2],
-      }
-    : undefined;
 
   return {
     position,
     currentIL: il as bigint | undefined,
-    parkedFunds,
-    yieldAccrued: yield_ as bigint | undefined,
-    isLoading: rest.isLoading || ilRest.isLoading || parkedRest.isLoading || yieldRest.isLoading,
+    currentSqrtPriceX96: slot0 ? slot0[0] : undefined,
+    refetch,
   };
 }

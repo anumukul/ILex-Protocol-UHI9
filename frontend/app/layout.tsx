@@ -7,6 +7,9 @@ const WagmiProviders = dynamic(() => import("./providers").then((m) => m.Provide
   ssr: false,
 });
 
+const Header = dynamic(() => import("@/components/layout/Header"), { ssr: false });
+const Footer = dynamic(() => import("@/components/layout/Footer"), { ssr: false });
+
 const geistSans = localFont({
   src: "./fonts/GeistVF.woff",
   variable: "--font-geist-sans",
@@ -34,7 +37,15 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} bg-black font-sans text-white antialiased`}
       >
-        <WagmiProviders>{children}</WagmiProviders>
+        <WagmiProviders>
+          <div className="flex min-h-screen flex-col">
+            <Header />
+            <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8">
+              {children}
+            </main>
+            <Footer />
+          </div>
+        </WagmiProviders>
       </body>
     </html>
   );

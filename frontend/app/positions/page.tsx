@@ -1,96 +1,68 @@
-"use client";
-
-import Navbar from "@/components/Navbar";
-import ActivityFeed from "@/components/ActivityFeed";
-import { useActivityFeed } from "@/hooks/useActivityFeed";
-import { formatTimestamp, formatIL } from "@/lib/ilmath";
-import { formatTokenAmount, truncateAddress } from "@/lib/utils";
+'use client'
+import { useActivityFeed } from '@/hooks/useActivityFeed'
 
 export default function PositionsPage() {
-  const { data: activities, error } = useActivityFeed();
-
-  interface ActivityEvent {
-    _eventName: string;
-    address: string;
-    blockTimestamp?: number;
-    ilAtExitBps?: bigint;
-    token0Parked?: bigint;
-    token1Parked?: bigint;
-    token0Returned?: bigint;
-    token1Returned?: bigint;
-    yieldEarned0?: bigint;
-    yieldEarned1?: bigint;
-  }
-
-  const allEvents = (activities || []).filter(
-    (e: ActivityEvent) => e._eventName === "Exited" || e._eventName === "Manual Exit" || e._eventName === "Re-entered"
-  );
-
-  function exitRow(e: ActivityEvent, i: number) {
-    const label = e._eventName === "Manual Exit" ? "Manual Exit" : e._eventName === "Re-entered" ? "Re-entered" : "Exited";
-    const badgeColor = e._eventName === "Manual Exit" ? "bg-amber-500/20 text-amber-300" : e._eventName === "Re-entered" ? "bg-emerald-500/20 text-emerald-300" : "bg-blue-500/20 text-blue-300";
-    const ilCell = e._eventName === "Exited" ? formatIL(Number(e.ilAtExitBps || 0)) : "—";
-    const token0Cell = e._eventName === "Exited" ? formatTokenAmount(e.token0Parked as bigint) : e._eventName === "Manual Exit" ? formatTokenAmount(e.token0Returned as bigint) : "—";
-    const token1Cell = e._eventName === "Exited" ? formatTokenAmount(e.token1Parked as bigint) : e._eventName === "Manual Exit" ? formatTokenAmount(e.token1Returned as bigint) : "—";
-    const yieldCell = e._eventName === "Re-entered" ? `${formatTokenAmount(e.yieldEarned0 as bigint)} / ${formatTokenAmount(e.yieldEarned1 as bigint)}` : "—";
-    return (
-      <tr key={i} className="border-b border-white/5 text-gray-300">
-        <td className="py-2 pr-4 font-mono">{truncateAddress(e.address, 6)}</td>
-        <td className="py-2 pr-4">
-          <span className={`rounded-full px-2 py-0.5 ${badgeColor}`}>
-            {label}
-          </span>
-        </td>
-        <td className="py-2 pr-4">{ilCell}</td>
-        <td className="py-2 pr-4 font-mono">{token0Cell}</td>
-        <td className="py-2 pr-4 font-mono">{token1Cell}</td>
-        <td className="py-2 pr-4 font-mono">{yieldCell}</td>
-        <td className="py-2 text-gray-600">{e.blockTimestamp ? formatTimestamp(e.blockTimestamp) : ""}</td>
-      </tr>
-    );
-  }
+  const { activities, isLoading } = useActivityFeed()
 
   return (
-    <div className="min-h-screen bg-black">
-      <Navbar />
-      <div className="mx-auto max-w-5xl px-4 py-8">
-        <h1 className="text-lg font-semibold text-white">Protocol Activity</h1>
+    <div className="mx-auto max-w-4xl">
+      <h1 className="mb-2 text-3xl font-black text-white">Protocol Activity</h1>
+      <p className="mb-8 text-gray-500">All ILex positions and automation events</p>
 
-        <div className="mt-4 space-y-4">
-          <div className="rounded-lg border border-white/10 bg-white/5 p-4">
-            <h2 className="text-sm font-medium text-white">Recent Exits & Re-entries</h2>
-            {error ? (
-              <p className="mt-3 text-xs text-red-400">Error: {error}</p>
-            ) : allEvents.length > 0 ? (
-              <div className="mt-3 overflow-x-auto">
-                <table className="w-full text-xs">
-                  <thead>
-                    <tr className="border-b border-white/10 text-left text-gray-500">
-                      <th className="pb-2 pr-4 font-medium">LP</th>
-                      <th className="pb-2 pr-4 font-medium">Status</th>
-                      <th className="pb-2 pr-4 font-medium">IL at Exit</th>
-                      <th className="pb-2 pr-4 font-medium">Token0</th>
-                      <th className="pb-2 pr-4 font-medium">Token1</th>
-                      <th className="pb-2 pr-4 font-medium" title="Yield Earned (Token0 / Token1)">Yield</th>
-                      <th className="pb-2 font-medium">Time</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {allEvents.slice(0, 50).map((e: ActivityEvent, i: number) => exitRow(e, i))}
-                  </tbody>
-                </table>
-              </div>
-            ) : (
-              <p className="mt-3 text-xs text-gray-500">No events yet</p>
-            )}
-          </div>
+      {isLoading ? (
+        <div className="py-20 text-center text-gray-500">Loading events...</div>
+      ) : (
+        <div className="overflow-hidden rounded-2xl border border-gray-800 bg-gray-900">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-gray-800">
+                <th className="px-6 py-4 text-left font-medium text-gray-500">Event</th>
+                <th className="px-6 py-4 text-left font-medium text-gray-500">LP</th>
+                <th className="px-6 py-4 text-left font-medium text-gray-500">Detail</th>
+                <th className="px-6 py-4 text-left font-medium text-gray-500">Tx</th>
+              </tr>
+            </thead>
+            <tbody>
+              {activities.map((item, i) => (
+                <tr key={i} className="border-b border-gray-800/50 hover:bg-gray-800/30">
+                  <td className="px-6 py-4">
+                    <span className={`font-medium ${
+                      item.type === 'created' ? 'text-emerald-400' :
+                      item.type === 'exited' ? 'text-yellow-400' :
+                      item.type === 'reentered' ? 'text-cyan-400' : 'text-gray-400'
+                    }`}>
+                      {item.type === 'created' ? 'Protected' :
+                       item.type === 'exited' ? 'Auto-Exited' :
+                       item.type === 'reentered' ? 'Re-Entered' : 'Manual Exit'}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 font-mono text-xs text-gray-400">
+                    {String(item.lp).slice(0, 6)}...{String(item.lp).slice(-4)}
+                  </td>
+                  <td className="px-6 py-4 text-gray-500">
+                    {item.type === 'exited' && item.ilBps !== undefined
+                      ? `IL at exit: ${(item.ilBps / 100).toFixed(2)}%`
+                      : '\u2014'}
+                  </td>
+                  <td className="px-6 py-4">
+                    <a
+                      href={`https://sepolia.uniscan.xyz/tx/${item.txHash}`}
+                      target="_blank" rel="noreferrer"
+                      className="font-mono text-xs text-purple-400 hover:text-purple-300"
+                    >
+                      {String(item.txHash).slice(0, 8)}...↗
+                    </a>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
 
-          <div className="rounded-lg border border-white/10 bg-white/5 p-4">
-            <h2 className="text-sm font-medium text-white">Live Feed</h2>
-            <ActivityFeed />
-          </div>
+          {activities.length === 0 && (
+            <div className="py-12 text-center text-sm text-gray-600">No events yet</div>
+          )}
         </div>
-      </div>
+      )}
     </div>
-  );
+  )
 }

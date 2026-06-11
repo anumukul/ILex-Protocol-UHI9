@@ -1,179 +1,68 @@
-"use client";
-
-import { useState, useEffect, useRef } from "react";
-import { usePublicClient } from "wagmi";
-import { hookAddress } from "@/lib/contracts";
+'use client'
+import { useState, useEffect } from 'react'
+import { usePublicClient } from 'wagmi'
+import { ILEX_HOOK_ADDRESS, ILEX_HOOK_ABI } from '@/lib/contracts'
 
 export interface ActivityEvent {
-  _eventName: string;
-  address: `0x${string}`;
-  blockTimestamp: bigint;
-  [key: string]: unknown;
+  type: 'created' | 'exited' | 'reentered' | 'manual'
+  lp: string
+  ilBps?: number
+  txHash: string
+  blockNumber: bigint
+  timestamp: number
 }
 
-const CHUNK_SIZE = 10000n;
-const HISTORY_BLOCKS = 100000n;
-const POLL_MS = 30_000;
+const CREATED_EVENT = ILEX_HOOK_ABI.find(e => e.name === 'PositionCreated') as any
+const EXITED_EVENT = ILEX_HOOK_ABI.find(e => e.name === 'PositionExited') as any
+const REENTERED_EVENT = ILEX_HOOK_ABI.find(e => e.name === 'PositionReentered') as any
+const MANUAL_EVENT = ILEX_HOOK_ABI.find(e => e.name === 'ManualExit') as any
 
-const createdEvent = {
-  type: "event" as const,
-  name: "PositionCreated" as const,
-  inputs: [
-    { type: "address" as const, name: "lp", indexed: true },
-    { type: "uint160" as const, name: "entrySqrtPriceX96", indexed: false },
-    { type: "uint256" as const, name: "ilThresholdBps", indexed: false },
-    { type: "uint256" as const, name: "reentryToleranceBps", indexed: false },
-    { type: "int24" as const, name: "tickLower", indexed: false },
-    { type: "int24" as const, name: "tickUpper", indexed: false },
-    { type: "uint256" as const, name: "token0Amount", indexed: false },
-    { type: "uint256" as const, name: "token1Amount", indexed: false },
-  ],
-};
+const CHUNK_SIZE = 10000n
+const HISTORY_BLOCKS = 100000n
 
-const exitedEvent = {
-  type: "event" as const,
-  name: "PositionExited" as const,
-  inputs: [
-    { type: "address" as const, name: "lp", indexed: true },
-    { type: "uint160" as const, name: "exitSqrtPriceX96", indexed: false },
-    { type: "uint256" as const, name: "ilAtExitBps", indexed: false },
-    { type: "uint256" as const, name: "token0Parked", indexed: false },
-    { type: "uint256" as const, name: "token1Parked", indexed: false },
-    { type: "uint256" as const, name: "timestamp", indexed: false },
-  ],
-};
-
-const reenteredEvent = {
-  type: "event" as const,
-  name: "PositionReentered" as const,
-  inputs: [
-    { type: "address" as const, name: "lp", indexed: true },
-    { type: "uint160" as const, name: "reentryPriceX96", indexed: false },
-    { type: "uint256" as const, name: "yieldEarned0", indexed: false },
-    { type: "uint256" as const, name: "yieldEarned1", indexed: false },
-    { type: "uint256" as const, name: "timestamp", indexed: false },
-  ],
-};
-
-const manualExitEvent = {
-  type: "event" as const,
-  name: "ManualExit" as const,
-  inputs: [
-    { type: "address" as const, name: "lp", indexed: true },
-    { type: "uint256" as const, name: "token0Returned", indexed: false },
-    { type: "uint256" as const, name: "token1Returned", indexed: false },
-    { type: "uint8" as const, name: "statusAtExit", indexed: false },
-  ],
-};
-
-async function fetchLogs(
-  client: NonNullable<ReturnType<typeof usePublicClient>>,
-  event: any,
-  address: `0x${string}` | undefined,
-  fromBlock: bigint,
-  toBlock: bigint,
-): Promise<any[]> {
-  const all: any[] = [];
-  let f = fromBlock;
-  while (f <= toBlock) {
-    const t = f + CHUNK_SIZE - 1n > toBlock ? toBlock : f + CHUNK_SIZE - 1n;
-    const chunk = await client.getLogs({
-      address: hookAddress(),
-      event,
-      args: address ? { lp: address } : undefined,
-      fromBlock: f,
-      toBlock: t,
-    });
-    all.push(...chunk);
-    f = t + 1n;
-  }
-  return all;
-}
-
-async function fetchAllEvents(
-  client: NonNullable<ReturnType<typeof usePublicClient>>,
-  address: `0x${string}` | undefined,
-  fromBlock: bigint,
-  toBlock: bigint,
-): Promise<ActivityEvent[]> {
-  const [created, exited, reentered, manual] = await Promise.all([
-    fetchLogs(client, createdEvent, address, fromBlock, toBlock),
-    fetchLogs(client, exitedEvent, address, fromBlock, toBlock),
-    fetchLogs(client, reenteredEvent, address, fromBlock, toBlock),
-    fetchLogs(client, manualExitEvent, address, fromBlock, toBlock),
-  ]);
-
-  const mapped: ActivityEvent[] = [
-    ...created.map((l: any) => ({
-      _eventName: "Deposited",
-      address: l.args.lp as `0x${string}`,
-      blockTimestamp: BigInt(Math.floor(Date.now() / 1000)),
-      ...l.args,
-    })),
-    ...exited.map((l: any) => ({
-      _eventName: "Exited",
-      address: l.args.lp as `0x${string}`,
-      blockTimestamp: l.args.timestamp as bigint,
-      ...l.args,
-    })),
-    ...reentered.map((l: any) => ({
-      _eventName: "Re-entered",
-      address: l.args.lp as `0x${string}`,
-      blockTimestamp: l.args.timestamp as bigint,
-      ...l.args,
-    })),
-    ...manual.map((l: any) => ({
-      _eventName: "Manual Exit",
-      address: l.args.lp as `0x${string}`,
-      blockTimestamp: BigInt(Math.floor(Date.now() / 1000)),
-      ...l.args,
-    })),
-  ];
-
-  mapped.sort((a, b) => Number(b.blockTimestamp - a.blockTimestamp));
-  return mapped;
-}
-
-export function useActivityFeed(address?: `0x${string}`) {
-  const maybeClient = usePublicClient();
-  const [events, setEvents] = useState<ActivityEvent[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const lastBlockRef = useRef<bigint>(0n);
+export function useActivityFeed(lpAddress?: `0x${string}`) {
+  const publicClient = usePublicClient()
+  const [activities, setActivities] = useState<ActivityEvent[]>([])
+  const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    if (!maybeClient) {
-      setError("No public client");
-      setIsLoading(false);
-      return;
-    }
-    const client = maybeClient;
+    if (!publicClient) return
+    let cancelled = false
 
-    let cancelled = false;
-
-    async function fetch() {
+    const fetchEvents = async () => {
       try {
-        const latest = await client.getBlockNumber();
-        const start = latest > HISTORY_BLOCKS ? latest - HISTORY_BLOCKS : 0n;
-        const results = await fetchAllEvents(client, address, start, latest);
-        if (!cancelled) {
-          setEvents(results);
-          setError(null);
-          lastBlockRef.current = latest;
-        }
-      } catch (e: any) {
-        if (!cancelled) {
-          setError(e?.shortMessage || e?.message || "Failed to load events");
-        }
+        const latest = await publicClient.getBlockNumber()
+        const start = latest > HISTORY_BLOCKS ? latest - HISTORY_BLOCKS : 0n
+
+        const [created, exited, reentered, manual] = await Promise.all([
+          publicClient.getLogs({ address: ILEX_HOOK_ADDRESS, event: CREATED_EVENT, args: lpAddress ? { lp: lpAddress } : undefined, fromBlock: start, toBlock: latest } as any),
+          publicClient.getLogs({ address: ILEX_HOOK_ADDRESS, event: EXITED_EVENT, args: lpAddress ? { lp: lpAddress } : undefined, fromBlock: start, toBlock: latest } as any),
+          publicClient.getLogs({ address: ILEX_HOOK_ADDRESS, event: REENTERED_EVENT, args: lpAddress ? { lp: lpAddress } : undefined, fromBlock: start, toBlock: latest } as any),
+          publicClient.getLogs({ address: ILEX_HOOK_ADDRESS, event: MANUAL_EVENT, args: lpAddress ? { lp: lpAddress } : undefined, fromBlock: start, toBlock: latest } as any),
+        ])
+
+        if (cancelled) return
+
+        const mapped: ActivityEvent[] = [
+          ...created.map((log: any) => ({ type: 'created' as const, lp: log.args[0] ?? '', txHash: log.transactionHash, blockNumber: log.blockNumber, timestamp: Date.now() / 1000 })),
+          ...exited.map((log: any) => ({ type: 'exited' as const, lp: log.args[0] ?? '', ilBps: Number(log.args[2] ?? 0n), txHash: log.transactionHash, blockNumber: log.blockNumber, timestamp: Date.now() / 1000 })),
+          ...reentered.map((log: any) => ({ type: 'reentered' as const, lp: log.args[0] ?? '', txHash: log.transactionHash, blockNumber: log.blockNumber, timestamp: Date.now() / 1000 })),
+          ...manual.map((log: any) => ({ type: 'manual' as const, lp: log.args[0] ?? '', txHash: log.transactionHash, blockNumber: log.blockNumber, timestamp: Date.now() / 1000 })),
+        ]
+          .sort((a, b) => Number(b.blockNumber - a.blockNumber))
+
+        setActivities(mapped)
+      } catch (e) {
+        console.error('Failed to fetch activity:', e)
+      } finally {
+        if (!cancelled) setIsLoading(false)
       }
-      if (!cancelled) setIsLoading(false);
     }
 
-    fetch();
+    fetchEvents()
+    const interval = setInterval(fetchEvents, 15_000)
+    return () => { cancelled = true; clearInterval(interval) }
+  }, [publicClient, lpAddress])
 
-    const interval = setInterval(fetch, POLL_MS);
-    return () => { cancelled = true; clearInterval(interval); };
-  }, [address, maybeClient]);
-
-  return { data: events.length > 0 ? events : undefined, isLoading, error };
+  return { activities, isLoading }
 }

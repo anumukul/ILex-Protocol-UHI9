@@ -1,35 +1,30 @@
-"use client";
+'use client'
+import { useReadContract } from 'wagmi'
+import { useAccount } from 'wagmi'
+import { ILEX_HOOK_ABI, ILEX_HOOK_ADDRESS, MOCK_LENDING_POOL_ABI, MOCK_LENDING_POOL_ADDRESS } from '@/lib/contracts'
 
-import { useReadContract } from "wagmi";
-import { hookABI, hookAddress, lendingPoolABI, lendingPoolAddress } from "@/lib/contracts";
+export function useYieldAccrued() {
+  const { address } = useAccount()
 
-export function useYieldAccrued(address: `0x${string}` | undefined) {
-  const { data: yieldData, ...rest } = useReadContract({
-    abi: hookABI,
-    address: hookAddress(),
-    functionName: "estimateYieldAccrued",
-    args: address ? [address] : undefined,
-    query: { enabled: !!address, refetchInterval: 15_000 },
-  });
+  const { data: yieldData } = useReadContract({
+    address: ILEX_HOOK_ADDRESS,
+    abi: ILEX_HOOK_ABI,
+    functionName: 'estimateYieldAccrued',
+    args: [address!],
+    query: { enabled: !!address, refetchInterval: 30_000 },
+  })
 
-  const { data: apyData } = useReadContract({
-    abi: lendingPoolABI,
-    address: lendingPoolAddress(),
-    functionName: "getApy",
-    args: address ? [lendingPoolAddress()] : undefined,
-    query: { enabled: !!address },
-  });
+  const { data: apyBpsData } = useReadContract({
+    address: MOCK_LENDING_POOL_ADDRESS,
+    abi: MOCK_LENDING_POOL_ABI,
+    functionName: 'getApy',
+  })
 
-  const arr = yieldData as [bigint, bigint] | undefined;
-  const totalYield = arr ? arr[0] + arr[1] : undefined;
-  const apyBps = apyData as bigint | undefined;
+  const arr = yieldData as [bigint, bigint] | undefined
 
   return {
-    data: totalYield,
-    yield0: arr ? arr[0] : undefined,
-    yield1: arr ? arr[1] : undefined,
-    apyBps,
-    formattedApy: apyBps ? `${(Number(apyBps) / 100).toFixed(2)}%` : undefined,
-    ...rest,
-  };
+    yield0: arr?.[0] ?? 0n,
+    yield1: arr?.[1] ?? 0n,
+    apyBps: Number(apyBpsData ?? 300n),
+  }
 }

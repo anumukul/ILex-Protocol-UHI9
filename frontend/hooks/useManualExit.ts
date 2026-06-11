@@ -1,19 +1,18 @@
-"use client";
-
-import { useWriteContract } from "wagmi";
-import { hookABI, hookAddress } from "@/lib/contracts";
+'use client'
+import { useWriteContract, useWaitForTransactionReceipt } from 'wagmi'
+import { ILEX_HOOK_ABI, ILEX_HOOK_ADDRESS } from '@/lib/contracts'
 
 export function useManualExit() {
-  const { writeContract, isPending, isSuccess, error, reset } = useWriteContract();
+  const { writeContract, data: hash, isPending } = useWriteContract()
+  const { isSuccess, isLoading: isConfirming } = useWaitForTransactionReceipt({ hash })
 
-  function manualExit() {
+  const manualExit = () => {
     writeContract({
-      abi: hookABI,
-      address: hookAddress(),
-      functionName: "manualExit",
-      args: [],
-    });
+      address: ILEX_HOOK_ADDRESS,
+      abi: ILEX_HOOK_ABI,
+      functionName: 'manualExit',
+    })
   }
 
-  return { manualExit, isPending, isSuccess, error, reset };
+  return { manualExit, isPending: isPending || isConfirming, isSuccess }
 }

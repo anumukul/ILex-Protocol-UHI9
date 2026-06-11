@@ -6,6 +6,7 @@ cache/
 artifacts/
 frontend/.next/
 frontend/out/
+documentation/
 *.swp
 *.swo
 .DS_Store
