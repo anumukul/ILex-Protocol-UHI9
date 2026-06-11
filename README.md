@@ -91,7 +91,7 @@ There is no alternative to the RSC — no cron job, no keeper network, no manual
 
 ## Tests
 
-All 54 tests pass, covering unit, integration, and fuzz testing.
+All tests pass, covering unit, integration, and fuzz testing.
 
 ```bash
 cd contracts
@@ -162,7 +162,7 @@ contracts/
 │   ├── interfaces/              # IILexHook, ILendingPool
 │   └── mocks/                   # MockLendingPool, MockERC20
 ├── script/                      # Deploy scripts
-├── test/                        # 54 tests
+├── test/                        # Foundry tests
 └── foundry.toml
 
 frontend/
