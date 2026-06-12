@@ -4,6 +4,12 @@
 
 LPs deposit into ILex, set an IL tolerance (e.g. 5%), and walk away. A Reactive Smart Contract monitors the pool 24/7. When IL hits the limit, it auto-exits the position and parks funds in a lending pool to earn yield. When price recovers, it re-enters — all on-chain, no bots, no manual monitoring.
 
+## Live Sites
+
+- **Live Demo** — [i-lex-protocol-hook-p.vercel.app](https://i-lex-protocol-hook-p.vercel.app/)
+- **Documentation** — [documentation-i-lex-protocol-hook.vercel.app](https://documentation-i-lex-protocol-hook.vercel.app/)
+- **Pitch Deck** — [anumukul.github.io/Pitch-Deck-ILex-Protocol-UHI9](https://anumukul.github.io/Pitch-Deck-ILex-Protocol-UHI9/)
+
 
 
 

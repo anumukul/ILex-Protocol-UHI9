@@ -4,12 +4,30 @@ export default function Footer() {
       <div className="mx-auto max-w-4xl">
         <div className="flex items-center justify-center gap-4">
           <a
-            href="https://github.com"
+            href="https://github.com/anumukul/ILex-Protocol-UHI9"
             target="_blank"
             rel="noopener noreferrer"
             className="hover:text-white transition-colors"
           >
             GitHub
+          </a>
+          <span className="text-white/20">·</span>
+          <a
+            href="https://documentation-i-lex-protocol-hook.vercel.app"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hover:text-white transition-colors"
+          >
+            Docs
+          </a>
+          <span className="text-white/20">·</span>
+          <a
+            href="https://anumukul.github.io/Pitch-Deck-ILex-Protocol-UHI9/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hover:text-white transition-colors"
+          >
+            Pitch Deck
           </a>
           <span className="text-white/20">·</span>
           <a
