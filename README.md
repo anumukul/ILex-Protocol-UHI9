@@ -58,10 +58,17 @@ Unichain Sepolia (Chain 1301)          Reactive Network Lasna (Chain 5318007)
 |---|---|---|
 | **ILexHook** | `contracts/src/ILexHook.sol` | Uniswap v4 hook — manages LP positions, add/remove liquidity, park funds in lending pool, emit events for RSC |
 | **ILexReactive** | `contracts/src/ILexReactive.sol` | Reactive Smart Contract — subscribes to hook events, monitors IL, fires exit/reentry callbacks |
-| **ILMath** | `contracts/src/libraries/ILMath.sol` | Pure math — IL calculation, price deviation, sqrtPriceX96 conversion |
+| **ILMath** | `contracts/src/libraries/ILMath.sol` | Pure math — IL calculation, price deviation, sqrtPriceX96 conversion (inlined library, no separate deployment) |
 | **SwapHelper** | `contracts/src/SwapHelper.sol` | Helper contract for executing swaps via PoolManager |
 | **MockLendingPool** | `contracts/src/mocks/MockLendingPool.sol` | Simulates 3% APY lending pool for testnet/testing |
 | **MockERC20** | `contracts/src/mocks/MockERC20.sol` | Test ERC20 token |
+
+## Deployed Contracts
+
+| Contract | Address | Chain |
+|---|---|---|
+| **ILexHook** | `0x4c296AddD2cb9ab50703804a1E2aE05809084040` | Unichain Sepolia (1301) |
+| **ILexReactive** | `0x242EcB8f8dD56b2163fE086b91AbB5eF8f6fC2e9` | Reactive Lasna (5318007) |
 
 ---
 
